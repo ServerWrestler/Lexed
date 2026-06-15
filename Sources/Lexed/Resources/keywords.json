@@ -1,0 +1,167 @@
+[
+  {
+    "term": "API",
+    "definition": "Application Programming Interface — a defined way for two software systems to talk to each other.",
+    "aliases": ["application programming interface"],
+    "category": "Engineering"
+  },
+  {
+    "term": "REST",
+    "definition": "Representational State Transfer — a common style for building web APIs over HTTP using URLs and verbs like GET and POST.",
+    "aliases": ["restful", "rest api"],
+    "category": "Engineering"
+  },
+  {
+    "term": "CI/CD",
+    "definition": "Continuous Integration / Continuous Delivery — automatically building, testing, and shipping code as it changes.",
+    "aliases": ["ci cd", "continuous integration", "continuous delivery", "continuous deployment"],
+    "category": "DevOps"
+  },
+  {
+    "term": "Kubernetes",
+    "definition": "An open-source system for automating deployment, scaling, and management of containerized applications.",
+    "aliases": ["k8s"],
+    "category": "DevOps"
+  },
+  {
+    "term": "Docker",
+    "definition": "A tool that packages software into lightweight, portable containers that run the same everywhere.",
+    "aliases": ["containerization", "containers"],
+    "category": "DevOps"
+  },
+  {
+    "term": "SLA",
+    "definition": "Service Level Agreement — a commitment about how reliable or fast a service will be (e.g. 99.9% uptime).",
+    "aliases": ["service level agreement"],
+    "category": "Operations"
+  },
+  {
+    "term": "SLO",
+    "definition": "Service Level Objective — the internal target that a team aims for to meet an SLA.",
+    "aliases": ["service level objective"],
+    "category": "Operations"
+  },
+  {
+    "term": "KPI",
+    "definition": "Key Performance Indicator — a metric used to judge whether something is on track.",
+    "aliases": ["key performance indicator"],
+    "category": "Business"
+  },
+  {
+    "term": "OKR",
+    "definition": "Objectives and Key Results — a goal-setting framework pairing an ambitious objective with measurable results.",
+    "aliases": ["objectives and key results"],
+    "category": "Business"
+  },
+  {
+    "term": "MVP",
+    "definition": "Minimum Viable Product — the smallest version of a product that can be released to learn from real users.",
+    "aliases": ["minimum viable product"],
+    "category": "Product"
+  },
+  {
+    "term": "SaaS",
+    "definition": "Software as a Service — software delivered over the internet on a subscription rather than installed locally.",
+    "aliases": ["software as a service"],
+    "category": "Business"
+  },
+  {
+    "term": "B2B",
+    "definition": "Business to Business — selling products or services to other companies rather than to consumers.",
+    "aliases": ["business to business"],
+    "category": "Business"
+  },
+  {
+    "term": "B2C",
+    "definition": "Business to Consumer — selling directly to individual end users.",
+    "aliases": ["business to consumer"],
+    "category": "Business"
+  },
+  {
+    "term": "SQL",
+    "definition": "Structured Query Language — the standard language for querying and managing relational databases.",
+    "aliases": ["structured query language"],
+    "category": "Engineering"
+  },
+  {
+    "term": "ORM",
+    "definition": "Object-Relational Mapping — a layer that lets code work with database rows as objects.",
+    "aliases": ["object relational mapping"],
+    "category": "Engineering"
+  },
+  {
+    "term": "TDD",
+    "definition": "Test-Driven Development — writing automated tests before the code that makes them pass.",
+    "aliases": ["test driven development"],
+    "category": "Engineering"
+  },
+  {
+    "term": "CRUD",
+    "definition": "Create, Read, Update, Delete — the four basic operations on stored data.",
+    "aliases": ["create read update delete"],
+    "category": "Engineering"
+  },
+  {
+    "term": "latency",
+    "definition": "The delay between a request and its response, usually measured in milliseconds.",
+    "category": "Engineering"
+  },
+  {
+    "term": "throughput",
+    "definition": "How much work a system handles per unit of time, e.g. requests per second.",
+    "category": "Engineering"
+  },
+  {
+    "term": "idempotent",
+    "definition": "An operation that has the same effect whether it runs once or many times.",
+    "aliases": ["idempotency", "idempotence"],
+    "category": "Engineering"
+  },
+  {
+    "term": "scalability",
+    "definition": "A system's ability to handle growing load by adding resources.",
+    "aliases": ["scalable", "scale horizontally", "scale vertically"],
+    "category": "Engineering"
+  },
+  {
+    "term": "agile",
+    "definition": "An iterative way of working that delivers software in short cycles with frequent feedback.",
+    "aliases": ["scrum", "sprint"],
+    "category": "Process"
+  },
+  {
+    "term": "stakeholder",
+    "definition": "Anyone with an interest in a project's outcome — users, customers, leadership, or partners.",
+    "aliases": ["stakeholders"],
+    "category": "Business"
+  },
+  {
+    "term": "ROI",
+    "definition": "Return on Investment — the gain from an action relative to its cost.",
+    "aliases": ["return on investment"],
+    "category": "Business"
+  },
+  {
+    "term": "churn",
+    "definition": "The rate at which customers stop using a product over a period of time.",
+    "category": "Business"
+  },
+  {
+    "term": "GDPR",
+    "definition": "General Data Protection Regulation — the EU law governing how personal data is collected and handled.",
+    "aliases": ["general data protection regulation"],
+    "category": "Legal"
+  },
+  {
+    "term": "machine learning",
+    "definition": "Building systems that learn patterns from data instead of being explicitly programmed.",
+    "aliases": ["ML"],
+    "category": "AI"
+  },
+  {
+    "term": "LLM",
+    "definition": "Large Language Model — an AI model trained on vast text that generates and understands natural language.",
+    "aliases": ["large language model"],
+    "category": "AI"
+  }
+]

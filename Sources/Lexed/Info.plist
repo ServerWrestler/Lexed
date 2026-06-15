@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Lexed</string>
+    <key>CFBundleDisplayName</key>
+    <string>Lexed</string>
+    <key>CFBundleIdentifier</key>
+    <string>app.lexed.Lexed</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>Lexed</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+
+    <!-- TCC usage descriptions. Both prompts appear the first time Lexed listens. -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Lexed listens to the conversation so it can transcribe it into live captions on your screen.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Lexed converts speech to text on-device so it can caption and define spoken terms in real time.</string>
+</dict>
+</plist>

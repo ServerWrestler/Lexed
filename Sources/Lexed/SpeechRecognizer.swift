@@ -1,33 +1,37 @@
 import Foundation
 import AVFoundation
 import Speech
+import CoreGraphics
 import Combine
 
 /// Real-time speech-to-text built on Apple's on-device `Speech` framework.
 ///
-/// Audio flows: microphone → `AVAudioEngine` tap → `SFSpeechAudioBufferRecognitionRequest`
-/// → `SFSpeechRecognitionTask`. Partial results stream in continuously and are
-/// published as `volatileText`; when the recognizer finalizes a segment it is
-/// appended to `finalizedText` and a fresh request is rotated in so transcription
-/// continues indefinitely (SFSpeechRecognizer caps a single request at ~1 minute).
+/// Audio comes from a pluggable `AudioCapture` backend — the microphone
+/// (`AVAudioEngine`) or system audio (`ScreenCaptureKit`) — and is streamed into
+/// an `SFSpeechAudioBufferRecognitionRequest`. Partial results stream in
+/// continuously as `volatileText`; when the recognizer finalizes a segment it is
+/// committed to `finalizedText` and a fresh request is rotated in (without
+/// stopping capture), so transcription runs indefinitely. Recognition is
+/// **on-device only** — audio never leaves the Mac.
 @MainActor
 final class SpeechRecognizer: ObservableObject {
 
     // MARK: Published state
 
-    /// Text the recognizer has committed (won't change anymore).
-    @Published private(set) var finalizedText: String = ""
-    /// The current in-flight hypothesis (updates several times per second).
-    @Published private(set) var volatileText: String = ""
+    @Published private(set) var finalizedText = ""
+    @Published private(set) var volatileText = ""
     @Published private(set) var isRunning = false
     @Published private(set) var authorization: Authorization = .notDetermined
     @Published private(set) var statusMessage = "Idle"
 
-    /// Lexed is on-device only by design: the app is sandboxed without the network
-    /// entitlement, so audio can never leave the Mac. Recognition always requires
-    /// the locale's offline model to be installed.
-    let requireOnDevice = true
-    @Published var localeIdentifier = "en-US"
+    /// Where to capture audio from. Persisted across launches.
+    @Published var audioSourceKind: AudioSourceKind {
+        didSet { UserDefaults.standard.set(audioSourceKind.rawValue, forKey: Keys.audioSource) }
+    }
+    /// Recognition language. Persisted across launches.
+    @Published var localeIdentifier: String {
+        didSet { UserDefaults.standard.set(localeIdentifier, forKey: Keys.locale) }
+    }
 
     /// The full transcript to display: committed text plus the live hypothesis.
     var fullText: String {
@@ -45,62 +49,26 @@ final class SpeechRecognizer: ObservableObject {
 
     // MARK: Private
 
-    private let audioEngine = AVAudioEngine()
+    private enum Keys {
+        static let audioSource = "audioSourceKind"
+        static let locale = "localeIdentifier"
+    }
+
     private var recognizer: SFSpeechRecognizer?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
-    private var tapInstalled = false
+    private var capture: AudioCapture?
 
-    /// Locales that have an installed on-device model, useful for a settings picker.
+    /// Locales with an installed on-device model, for the settings picker.
     static var supportedLocales: [Locale] {
-        SFSpeechRecognizer.supportedLocales()
-            .sorted { ($0.identifier) < ($1.identifier) }
+        SFSpeechRecognizer.supportedLocales().sorted { $0.identifier < $1.identifier }
     }
 
-    // MARK: - Authorization
-
-    /// Ask for Speech Recognition + Microphone permission. Returns true if both
-    /// are granted.
-    @discardableResult
-    func requestAuthorization() async -> Bool {
-        let speechStatus = await withCheckedContinuation { (cont: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
-            SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0) }
-        }
-        authorization = Self.map(speechStatus)
-        guard authorization == .authorized else {
-            statusMessage = "Speech recognition permission was not granted."
-            return false
-        }
-
-        let micGranted = await requestMicrophoneAccess()
-        if !micGranted {
-            statusMessage = "Microphone permission was not granted."
-            return false
-        }
-        return true
-    }
-
-    private func requestMicrophoneAccess() async -> Bool {
-        await withCheckedContinuation { cont in
-            switch AVCaptureDevice.authorizationStatus(for: .audio) {
-            case .authorized:
-                cont.resume(returning: true)
-            case .notDetermined:
-                AVCaptureDevice.requestAccess(for: .audio) { cont.resume(returning: $0) }
-            default:
-                cont.resume(returning: false)
-            }
-        }
-    }
-
-    private static func map(_ s: SFSpeechRecognizerAuthorizationStatus) -> Authorization {
-        switch s {
-        case .authorized: return .authorized
-        case .denied: return .denied
-        case .restricted: return .restricted
-        case .notDetermined: return .notDetermined
-        @unknown default: return .denied
-        }
+    init() {
+        let defaults = UserDefaults.standard
+        audioSourceKind = AudioSourceKind(rawValue: defaults.string(forKey: Keys.audioSource) ?? "")
+            ?? .systemAudio
+        localeIdentifier = defaults.string(forKey: Keys.locale) ?? "en-US"
     }
 
     // MARK: - Lifecycle
@@ -115,13 +83,9 @@ final class SpeechRecognizer: ObservableObject {
 
     func start() async {
         guard !isRunning else { return }
+        guard await ensureSpeechAuthorized() else { return }
 
-        if authorization != .authorized {
-            guard await requestAuthorization() else { return }
-        }
-
-        let locale = Locale(identifier: localeIdentifier)
-        guard let recognizer = SFSpeechRecognizer(locale: locale) else {
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: localeIdentifier)) else {
             statusMessage = "No recognizer available for \(localeIdentifier)."
             return
         }
@@ -129,39 +93,61 @@ final class SpeechRecognizer: ObservableObject {
             statusMessage = "Recognizer for \(localeIdentifier) is temporarily unavailable."
             return
         }
-        if !recognizer.supportsOnDeviceRecognition {
-            statusMessage = "On-device model for \(localeIdentifier) isn't installed. Add it in System Settings ▸ Keyboard ▸ Dictation, then choose this language in Lexed's Settings."
+        guard recognizer.supportsOnDeviceRecognition else {
+            statusMessage = "On-device model for \(localeIdentifier) isn't installed. Add it in System Settings ▸ Keyboard ▸ Dictation, then pick this language in Settings."
             return
         }
         self.recognizer = recognizer
 
-        do {
-            try installTapIfNeeded()
-            if !audioEngine.isRunning {
-                audioEngine.prepare()
-                try audioEngine.start()
+        // Build the capture backend, requesting its specific permission first.
+        let capture: AudioCapture
+        switch audioSourceKind {
+        case .microphone:
+            guard await ensureMicrophoneAuthorized() else {
+                statusMessage = "Microphone permission is required (System Settings ▸ Privacy & Security ▸ Microphone)."
+                return
             }
-        } catch {
-            statusMessage = "Couldn't start audio: \(error.localizedDescription)"
-            teardownAudio()
-            return
+            capture = MicrophoneCapture { [weak self] buffer in
+                self?.request?.append(buffer)
+            }
+        case .systemAudio:
+            guard ensureScreenRecordingAuthorized() else {
+                statusMessage = "Grant Screen Recording to Lexed (System Settings ▸ Privacy & Security ▸ Screen Recording), then start again."
+                return
+            }
+            capture = SystemAudioCapture(
+                onSampleBuffer: { [weak self] sample in
+                    self?.request?.appendAudioSampleBuffer(sample)
+                },
+                onStop: { [weak self] error in
+                    Task { @MainActor in self?.handleCaptureStopped(error) }
+                }
+            )
         }
 
         isRunning = true
-        statusMessage = "Listening (on-device)…"
         startRequest()
+
+        do {
+            try await capture.start()
+            self.capture = capture
+            statusMessage = audioSourceKind == .systemAudio
+                ? "Listening to system audio (on-device)…"
+                : "Listening to microphone (on-device)…"
+        } catch {
+            isRunning = false
+            cancelRecognition()
+            statusMessage = "Couldn't start capture: \(error.localizedDescription)"
+        }
     }
 
     func stop() {
         guard isRunning else { return }
         isRunning = false
         statusMessage = "Stopped"
-        request?.endAudio()
-        task?.finish()
-        task = nil
-        request = nil
-        teardownAudio()
-        // Fold any trailing hypothesis into the committed transcript.
+        capture?.stop()
+        capture = nil
+        cancelRecognition()
         commitVolatile()
     }
 
@@ -171,49 +157,70 @@ final class SpeechRecognizer: ObservableObject {
         volatileText = ""
     }
 
-    // MARK: - Audio plumbing
-
-    private func installTapIfNeeded() throws {
-        guard !tapInstalled else { return }
-        let input = audioEngine.inputNode
-        let format = input.outputFormat(forBus: 0)
-        guard format.sampleRate > 0 else {
-            throw NSError(domain: "Lexed", code: -1,
-                          userInfo: [NSLocalizedDescriptionKey: "No audio input device is available."])
-        }
-        // The tap runs on a realtime audio thread; just forward buffers to whatever
-        // request is currently active.
-        input.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak self] buffer, _ in
-            self?.request?.append(buffer)
-        }
-        tapInstalled = true
-    }
-
-    private func teardownAudio() {
-        if tapInstalled {
-            audioEngine.inputNode.removeTap(onBus: 0)
-            tapInstalled = false
-        }
-        if audioEngine.isRunning {
-            audioEngine.stop()
+    private func handleCaptureStopped(_ error: Error?) {
+        guard isRunning else { return }
+        stop()
+        if let error {
+            statusMessage = "System audio capture stopped: \(error.localizedDescription)"
         }
     }
 
-    // MARK: - Recognition requests (rotated to allow unlimited duration)
+    // MARK: - Authorization
+
+    private func ensureSpeechAuthorized() async -> Bool {
+        if authorization == .authorized { return true }
+        let status = await withCheckedContinuation { (cont: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
+            SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0) }
+        }
+        authorization = Self.map(status)
+        if authorization != .authorized {
+            statusMessage = "Speech Recognition permission is required (System Settings ▸ Privacy & Security ▸ Speech Recognition)."
+        }
+        return authorization == .authorized
+    }
+
+    private func ensureMicrophoneAuthorized() async -> Bool {
+        await withCheckedContinuation { cont in
+            switch AVCaptureDevice.authorizationStatus(for: .audio) {
+            case .authorized:
+                cont.resume(returning: true)
+            case .notDetermined:
+                AVCaptureDevice.requestAccess(for: .audio) { cont.resume(returning: $0) }
+            default:
+                cont.resume(returning: false)
+            }
+        }
+    }
+
+    /// Returns true if Screen Recording is already granted; otherwise prompts.
+    /// (macOS may require relaunching Lexed after the grant the first time.)
+    private func ensureScreenRecordingAuthorized() -> Bool {
+        if CGPreflightScreenCaptureAccess() { return true }
+        return CGRequestScreenCaptureAccess()
+    }
+
+    private static func map(_ s: SFSpeechRecognizerAuthorizationStatus) -> Authorization {
+        switch s {
+        case .authorized: return .authorized
+        case .denied: return .denied
+        case .restricted: return .restricted
+        case .notDetermined: return .notDetermined
+        @unknown default: return .denied
+        }
+    }
+
+    // MARK: - Recognition requests (rotated for unlimited duration)
 
     private func startRequest() {
         guard isRunning, let recognizer else { return }
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
-        request.requiresOnDeviceRecognition = requireOnDevice
-        if #available(macOS 13.0, *) {
-            request.addsPunctuation = true
-        }
+        request.requiresOnDeviceRecognition = true   // on-device only, always
+        request.addsPunctuation = true
         self.request = request
 
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            // Recognition callbacks may arrive off the main actor.
             Task { @MainActor [weak self] in
                 self?.handle(result: result, error: error)
             }
@@ -226,7 +233,6 @@ final class SpeechRecognizer: ObservableObject {
             if result.isFinal {
                 appendFinalized(text)
                 volatileText = ""
-                // Rotate to a new request so we keep transcribing past this segment.
                 if isRunning { rotateRequest() }
             } else {
                 volatileText = text
@@ -234,9 +240,8 @@ final class SpeechRecognizer: ObservableObject {
         }
 
         if error != nil {
-            // Errors here are usually the ~1-minute segment limit or a transient
-            // audio hiccup. If we're meant to be listening, just rotate in a
-            // fresh request and carry on.
+            // Usually the ~1-minute segment limit or a transient hiccup. If we're
+            // still meant to be listening, rotate in a fresh request and continue.
             commitVolatile()
             if isRunning { rotateRequest() }
         }
@@ -250,6 +255,13 @@ final class SpeechRecognizer: ObservableObject {
         startRequest()
     }
 
+    private func cancelRecognition() {
+        request?.endAudio()
+        task?.cancel()
+        task = nil
+        request = nil
+    }
+
     private func commitVolatile() {
         guard !volatileText.isEmpty else { return }
         appendFinalized(volatileText)
@@ -259,10 +271,6 @@ final class SpeechRecognizer: ObservableObject {
     private func appendFinalized(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        if finalizedText.isEmpty {
-            finalizedText = trimmed
-        } else {
-            finalizedText += " " + trimmed
-        }
+        finalizedText = finalizedText.isEmpty ? trimmed : finalizedText + " " + trimmed
     }
 }

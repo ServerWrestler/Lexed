@@ -101,7 +101,6 @@ final class LexedViewModel: ObservableObject {
             counts[match.keyword.id, default: (match.keyword, 0)].count += 1
         }
 
-        var newlyHeard = false
         for (id, info) in counts {
             if var existing = detectedByID[id] {
                 if info.count != existing.count { existing.lastHeard = stamp }
@@ -114,13 +113,11 @@ final class LexedViewModel: ObservableObject {
                     lastHeard: stamp,
                     count: info.count
                 )
-                newlyHeard = true
-                // Auto-focus the latest unknown term so its definition pops up.
+                // Auto-focus the latest newly-heard term so its definition pops up.
                 focusedKeywordID = id
             }
         }
 
         detected = detectedByID.values.sorted { $0.lastHeard > $1.lastHeard }
-        _ = newlyHeard
     }
 }

@@ -5,8 +5,12 @@ internal meetings. Privacy is a core feature, not an afterthought.
 
 ## What Lexed does
 
-- Captures **microphone** audio only while you are actively listening (after you
-  press **Listen**).
+- Captures audio **only while you are actively listening** (after you press
+  **Listen**), from one source you choose:
+  - **System audio** — via `ScreenCaptureKit`, the audio your Mac plays (e.g. a
+    Zoom/Meet/Teams call or Slack huddle). Lexed sets `excludesCurrentProcessAudio`
+    so its own output is not captured.
+  - **Microphone** — via `AVAudioEngine`, for in-person conversations.
 - Converts that audio to text using Apple's **on-device** `Speech` framework.
   Recognition is **on-device only** — there is no cloud mode.
 
@@ -15,8 +19,11 @@ internal meetings. Privacy is a core feature, not an afterthought.
 - ❌ No network requests. Lexed makes **no** outbound connections — there is no
   analytics, no telemetry, no cloud backend. The app is sandboxed **without** the
   network entitlement.
-- ❌ No audio recording. Microphone buffers are streamed to the recognizer and
+- ❌ No audio recording. Captured audio buffers are streamed to the recognizer and
   discarded; nothing is written to disk.
+- ❌ No screenshots or video. Even though system-audio capture goes through the
+  Screen Recording permission, Lexed adds **only an audio output** to the capture
+  stream — no video frames are ever requested or processed.
 - ❌ No transcript persistence. The live transcript exists only in memory and is
   gone when you press **Clear** or quit.
 
@@ -34,11 +41,16 @@ add language**.
 
 ## Permissions Lexed requests
 
-- **Microphone** (`NSMicrophoneUsageDescription`) — to hear the conversation.
 - **Speech Recognition** (`NSSpeechRecognitionUsageDescription`) — to transcribe
-  it.
+  the audio. Always required.
+- **Screen Recording** — only when the audio source is **System audio**.
+  `ScreenCaptureKit` is gated by this permission even when capturing audio only.
+  Granted in **System Settings ▸ Privacy & Security ▸ Screen Recording** (macOS may
+  require relaunching Lexed the first time).
+- **Microphone** (`NSMicrophoneUsageDescription`) — only when the audio source is
+  **Microphone**.
 
-Both are standard macOS TCC prompts shown the first time you listen, and can be
+These are standard macOS TCC prompts shown the first time you listen, and can be
 revoked anytime in **System Settings ▸ Privacy & Security**.
 
 ## The only data Lexed stores

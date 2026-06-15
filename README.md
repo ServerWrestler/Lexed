@@ -27,7 +27,8 @@ to follow every word without breaking eye contact to Google an acronym.
 
 ## Features
 
-- 🎙️ **Live transcription** of the microphone using Apple's `Speech` framework, with continuous (unlimited-length) recognition.
+- 🎧 **Captures system audio from any app** — Zoom, Google Meet, Teams, Slack huddles — via `ScreenCaptureKit`. No virtual audio device needed. (Or switch to the **microphone** for in-person meetings.)
+- 🎙️ **Live transcription** using Apple's `Speech` framework, with continuous (unlimited-length) recognition.
 - ✨ **Inline keyword highlighting** — glossary terms light up the moment they're spoken.
 - 📖 **Instant definitions** — a "current definition" card plus a running list of every term heard this session, with counts and timestamps.
 - 🔒 **On-device only** — no network entitlement, no recording, sandboxed; audio never leaves the Mac.
@@ -50,8 +51,13 @@ cd Lexed
 ./scripts/build-app.sh --open
 ```
 
-The first time you press **Listen**, macOS asks for **Microphone** and **Speech
-Recognition** permission. Grant both.
+The first time you press **Listen**, macOS asks for permission:
+
+- **Speech Recognition** — always (Lexed transcribes).
+- **Screen Recording** — when the audio source is **System audio** (ScreenCaptureKit
+  captures app/call audio through this permission). macOS may require you to
+  **relaunch Lexed** after granting it the first time.
+- **Microphone** — when the audio source is **Microphone**.
 
 > **On-device model required.** Lexed is **on-device only** — it will not start
 > until your language's offline dictation model is installed. Add it in
@@ -72,39 +78,87 @@ For permission prompts to behave correctly, prefer the bundled app
 
 ---
 
+## Verifying it works
+
+The matching engine is covered by `swift test`, but the live audio path can only
+be confirmed by running the app. Use this manual acceptance checklist:
+
+**Build & launch**
+- [ ] `swift test` → all tests pass.
+- [ ] `./scripts/build-app.sh --open` builds and launches `Lexed.app`.
+
+**System-audio mode (Zoom / Slack / Meet / Teams)**
+- [ ] Settings ▸ Audio source = **System audio**.
+- [ ] Press **Listen**. If prompted, grant **Speech Recognition** and **Screen
+      Recording** (relaunch Lexed if macOS asks), then press Listen again.
+- [ ] Play a talking video (e.g. a YouTube clip) or join a real call. Spoken words
+      appear as captions within a second or two.
+- [ ] Status pill reads "Listening to system audio (on-device)…".
+
+**Microphone mode (in person)**
+- [ ] Settings ▸ Audio source = **Microphone**. Press Listen; grant **Microphone**.
+- [ ] Speak — your words appear as captions in real time.
+
+**Keyword highlight & define**
+- [ ] Say or play a sentence containing a glossary term, e.g. *"we need an **API**
+      with a 99.9% **SLA**."*
+- [ ] "API" and "SLA" highlight in the transcript.
+- [ ] Their definitions appear in the right sidebar; the newest is the big card.
+- [ ] Click a highlighted word → its definition becomes the focused card.
+
+**Glossary editing**
+- [ ] Keywords ▸ **Add** a new term; it persists after quitting and relaunching
+      (`~/Library/Application Support/Lexed/keywords.json`).
+- [ ] Export to JSON, then Import it into a fresh glossary.
+
+**Privacy (the on-device claim)**
+- [ ] Turn off Wi-Fi/Ethernet entirely, then transcribe — it still works,
+      proving recognition is on-device. (If it refuses to start, install the
+      on-device model via System Settings ▸ Keyboard ▸ Dictation.)
+
+> Maintainers: please run this checklist before tagging a release, since CI can
+> only verify the build and unit tests, not microphone/screen-capture behavior.
+
+---
+
 ## How to use it
 
-1. **Set up your glossary.** Click **Keywords** in the toolbar. Lexed ships with
+1. **Pick your audio source.** Open **Settings** (⌘,):
+   - **System audio (apps & calls)** — captures the audio your Mac plays, so it
+     hears the *other* person on a Zoom/Meet/Teams call or Slack huddle. Needs
+     Screen Recording permission.
+   - **Microphone (in person)** — captures the mic, for face-to-face meetings.
+2. **Set up your glossary.** Click **Keywords** in the toolbar. Lexed ships with
    28 common tech/business terms (API, SLA, CI/CD, OKR, Kubernetes, …). Add the
    acronyms and jargon specific to the company you're interviewing with.
-2. **Position the window** where you can glance at it during the conversation.
-3. **Press Listen** (⌘L). Captions stream in real time.
-4. When the speaker says a glossary term, it **highlights** in the transcript and
+3. **Position the window** where you can glance at it during the conversation.
+4. **Press Listen** (⌘L). Captions stream in real time.
+5. When the speaker says a glossary term, it **highlights** in the transcript and
    its **definition appears** on the right. Click any highlighted word to re-focus
    its definition.
-5. **Clear** (⇧⌘K) between conversations.
+6. **Clear** (⇧⌘K) between conversations.
 
 ### Tips for interviews & meetings
 
 - Before a specific interview, **export** your glossary, tweak it for that
   company's stack, and **import** it back — or keep multiple JSON files.
-- Lexed transcribes whatever the **microphone** hears. For in-person meetings the
-  built-in mic is fine. For video calls, see *Capturing call audio* below.
+- For remote interviews, use **System audio** so you caption the interviewer
+  through Zoom/Meet. For in-person, use **Microphone**.
 
 ---
 
-## Capturing call audio (Zoom / Meet / Teams)
+## Capturing call audio (Zoom / Meet / Teams / Slack)
 
-Lexed listens to the system **microphone**. To caption the *other* person on a
-video call, route that call's audio into an input device Lexed can hear:
+This is built in — no virtual audio device required. In **Settings**, choose
+**System audio (apps & calls)**. Lexed uses `ScreenCaptureKit` to read the audio
+your Mac is playing (excluding Lexed's own output) and transcribes it on-device.
 
-- Install a virtual audio device (e.g. **BlackHole**, free/open-source), create a
-  **Multi-Output Device** in *Audio MIDI Setup* so you still hear the call, and
-  select the virtual device as the input in Lexed's Settings, **or**
-- Use an aggregate/loopback setup of your choice.
+- Requires **Screen Recording** permission (System Settings ▸ Privacy & Security ▸
+  Screen Recording). macOS may ask you to relaunch Lexed after you grant it.
+- It captures *everything* you hear — the call, plus any music or notifications.
+  Mute other audio for the cleanest transcript.
 
-This keeps Lexed itself simple and within the microphone-only sandbox. A built-in
-system-audio capture mode (via `ScreenCaptureKit`) is on the [roadmap](#roadmap).
+> Per-app audio selection (capture only Zoom, say) is on the [roadmap](#roadmap).
 
 ---
 
@@ -147,7 +201,8 @@ Lexed/
 │   ├── Models.swift              # Keyword, DetectedTerm
 │   ├── Glossary.swift            # load/save/import/export keyword store
 │   ├── KeywordIndex.swift        # compiled regex matcher (the matching engine)
-│   ├── SpeechRecognizer.swift    # AVAudioEngine + SFSpeechRecognizer, live + rotating
+│   ├── AudioCapture.swift        # system-audio (ScreenCaptureKit) + microphone backends
+│   ├── SpeechRecognizer.swift    # SFSpeechRecognizer, on-device, live + rotating
 │   ├── LexedViewModel.swift      # ties speech + glossary → highlighted transcript
 │   ├── Views/                    # SwiftUI: transcript, sidebar, glossary editor, settings
 │   ├── Resources/keywords.json   # starter glossary
@@ -164,7 +219,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the pieces fit together
 
 ## Roadmap
 
-- [ ] System-audio capture via `ScreenCaptureKit` (caption the far side of a call without a virtual device).
+- [x] System-audio capture via `ScreenCaptureKit` (caption the far side of a call without a virtual device).
+- [ ] Per-app audio selection (capture a single app, e.g. only Zoom).
 - [ ] Floating always-on-top caption overlay / picture-in-picture mode.
 - [ ] Per-context glossary profiles (switch between "interview", "standup", …).
 - [ ] Transcript export (Markdown / `.txt`) with detected terms appended.

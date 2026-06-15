@@ -2,9 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- App Sandbox. Lexed only needs the microphone; it does no networking. -->
+    <!-- App Sandbox with NO network entitlement: audio can never leave the Mac.
+         System-audio capture (ScreenCaptureKit) is gated by the Screen Recording
+         TCC permission, which needs no entitlement key here. -->
     <key>com.apple.security.app-sandbox</key>
     <true/>
+    <!-- Microphone, for the in-person audio source. -->
     <key>com.apple.security.device.audio-input</key>
     <true/>
     <!-- Allow reading/writing the user's glossary file the user picks/imports. -->

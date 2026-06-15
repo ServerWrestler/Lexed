@@ -5,8 +5,10 @@ Lexed is a small SwiftUI app with a clear one-way data flow. The goal is that th
 the **UI is a thin projection** of observable state.
 
 ```
- microphone
-     │  AVAudioEngine tap (realtime thread)
+ AudioCapture (one of):
+   • SystemAudioCapture  ── ScreenCaptureKit ─▶ CMSampleBuffer   (Zoom/Slack/…)
+   • MicrophoneCapture   ── AVAudioEngine tap ─▶ AVAudioPCMBuffer (in person)
+     │  realtime/capture thread
      ▼
 ┌─────────────────────┐     partial/final results
 │  SpeechRecognizer    │ ─────────────────────────────┐
@@ -27,17 +29,36 @@ the **UI is a thin projection** of observable state.
 
 ## Components
 
+### `AudioCapture` (`Sources/Lexed/AudioCapture.swift`)
+A small protocol (`start() async throws` / `stop()`) with two backends, selected
+by `AudioSourceKind`. Each forwards captured audio to a closure supplied by the
+recognizer:
+
+- **`SystemAudioCapture`** — uses `ScreenCaptureKit`. Builds an `SCStream` with
+  `capturesAudio = true` and `excludesCurrentProcessAudio = true`, adds **only** an
+  `.audio` stream output (no video is ever processed; the tiny video dimensions
+  just satisfy the API), and forwards each `CMSampleBuffer`. This is how Lexed hears
+  Zoom/Meet/Teams/Slack. Requires the Screen Recording permission.
+- **`MicrophoneCapture`** — a single long-lived `AVAudioEngine` tap forwarding each
+  `AVAudioPCMBuffer`. For in-person meetings.
+
+Keeping capture behind a protocol means the recognizer's rotation logic doesn't
+care where audio comes from.
+
 ### `SpeechRecognizer` (`Sources/Lexed/SpeechRecognizer.swift`)
 `@MainActor ObservableObject` wrapping Apple's `Speech` framework.
 
-- Captures mic audio with a single long-lived `AVAudioEngine` tap. The tap runs on
-  a realtime audio thread and only does one thing: append buffers to the *current*
-  `SFSpeechAudioBufferRecognitionRequest`.
+- Owns the active `AudioCapture`. The capture's callback appends buffers to the
+  *current* `SFSpeechAudioBufferRecognitionRequest` (`append(_:)` for PCM,
+  `appendAudioSampleBuffer(_:)` for system audio).
 - **Continuous recognition.** `SFSpeechRecognizer` finalizes a request after a
   pause or ~1 minute. To transcribe indefinitely, the recognizer **rotates**: on a
   final result (or a recoverable error) it commits the text to `finalizedText`,
-  tears down the request/task, and starts a fresh one — without stopping the audio
-  engine. This is what makes "real time, all meeting long" work.
+  tears down the request/task, and starts a fresh one — without stopping capture.
+  This is what makes "real time, all meeting long" work.
+- Requests the right permission per source (Speech always; Microphone or Screen
+  Recording depending on `audioSourceKind`). The source and language are persisted
+  in `UserDefaults`.
 - Exposes two strings: `finalizedText` (committed) and `volatileText` (the live
   hypothesis, updated several times per second). `fullText` joins them.
 - Recognition is **on-device only**: `requiresOnDeviceRecognition` is always

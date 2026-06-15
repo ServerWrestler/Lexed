@@ -23,9 +23,10 @@ final class SpeechRecognizer: ObservableObject {
     @Published private(set) var authorization: Authorization = .notDetermined
     @Published private(set) var statusMessage = "Idle"
 
-    /// Force on-device recognition (no audio leaves the Mac). Strongly recommended
-    /// for private meetings; requires the locale's model to be installed.
-    @Published var requireOnDevice = true
+    /// Lexed is on-device only by design: the app is sandboxed without the network
+    /// entitlement, so audio can never leave the Mac. Recognition always requires
+    /// the locale's offline model to be installed.
+    let requireOnDevice = true
     @Published var localeIdentifier = "en-US"
 
     /// The full transcript to display: committed text plus the live hypothesis.
@@ -128,8 +129,8 @@ final class SpeechRecognizer: ObservableObject {
             statusMessage = "Recognizer for \(localeIdentifier) is temporarily unavailable."
             return
         }
-        if requireOnDevice && !recognizer.supportsOnDeviceRecognition {
-            statusMessage = "On-device model for \(localeIdentifier) isn't installed. Add it in System Settings ▸ Keyboard ▸ Dictation, or turn off on-device mode."
+        if !recognizer.supportsOnDeviceRecognition {
+            statusMessage = "On-device model for \(localeIdentifier) isn't installed. Add it in System Settings ▸ Keyboard ▸ Dictation, then choose this language in Lexed's Settings."
             return
         }
         self.recognizer = recognizer
@@ -147,7 +148,7 @@ final class SpeechRecognizer: ObservableObject {
         }
 
         isRunning = true
-        statusMessage = requireOnDevice ? "Listening (on-device)…" : "Listening…"
+        statusMessage = "Listening (on-device)…"
         startRequest()
     }
 

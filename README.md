@@ -19,9 +19,9 @@ glossary — a technical acronym, a piece of company jargon, a buzzword — it
 Built for **job interviews, sales calls, standups, and meetings** where you want
 to follow every word without breaking eye contact to Google an acronym.
 
-> **Privacy first.** Lexed uses Apple's on-device `Speech` framework. With
-> on-device mode on (the default), **the audio never leaves your Mac** — nothing
-> is recorded, uploaded, or sent to any server. See [docs/PRIVACY.md](docs/PRIVACY.md).
+> **Privacy first.** Lexed uses Apple's **on-device** `Speech` framework and is
+> sandboxed with no network access, so **the audio never leaves your Mac** —
+> nothing is recorded, uploaded, or sent to any server. See [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ---
 
@@ -30,7 +30,7 @@ to follow every word without breaking eye contact to Google an acronym.
 - 🎙️ **Live transcription** of the microphone using Apple's `Speech` framework, with continuous (unlimited-length) recognition.
 - ✨ **Inline keyword highlighting** — glossary terms light up the moment they're spoken.
 - 📖 **Instant definitions** — a "current definition" card plus a running list of every term heard this session, with counts and timestamps.
-- 🔒 **On-device by default** — no network, no recording, sandboxed.
+- 🔒 **On-device only** — no network entitlement, no recording, sandboxed; audio never leaves the Mac.
 - 📝 **Editable glossary** — add/edit terms, aliases ("k8s" → Kubernetes), categories, and source links; import/export as JSON.
 - 🖱️ **Click any highlighted word** in the transcript to pull up its definition.
 - 🔤 **Adjustable caption size**, auto-scroll, and selectable text.
@@ -53,10 +53,11 @@ cd Lexed
 The first time you press **Listen**, macOS asks for **Microphone** and **Speech
 Recognition** permission. Grant both.
 
-> **On-device model:** for fully-private recognition, make sure your language's
-> dictation model is installed: **System Settings ▸ Keyboard ▸ Dictation**, add
-> your language (this downloads the offline model). If it isn't installed, either
-> install it or turn off "On-device only" in Lexed's Settings.
+> **On-device model required.** Lexed is **on-device only** — it will not start
+> until your language's offline dictation model is installed. Add it in
+> **System Settings ▸ Keyboard ▸ Dictation** (this downloads the offline model),
+> then pick that language in Lexed's Settings. This is what guarantees the audio
+> never leaves your Mac.
 
 ### Run during development
 
@@ -74,7 +75,7 @@ For permission prompts to behave correctly, prefer the bundled app
 ## How to use it
 
 1. **Set up your glossary.** Click **Keywords** in the toolbar. Lexed ships with
-   ~30 common tech/business terms (API, SLA, CI/CD, OKR, Kubernetes, …). Add the
+   28 common tech/business terms (API, SLA, CI/CD, OKR, Kubernetes, …). Add the
    acronyms and jargon specific to the company you're interviewing with.
 2. **Position the window** where you can glance at it during the conversation.
 3. **Press Listen** (⌘L). Captions stream in real time.

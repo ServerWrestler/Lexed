@@ -7,8 +7,8 @@ internal meetings. Privacy is a core feature, not an afterthought.
 
 - Captures **microphone** audio only while you are actively listening (after you
   press **Listen**).
-- Converts that audio to text using Apple's **on-device** `Speech` framework when
-  "On-device only" is enabled (the **default**).
+- Converts that audio to text using Apple's **on-device** `Speech` framework.
+  Recognition is **on-device only** — there is no cloud mode.
 
 ## What Lexed does **not** do
 
@@ -20,16 +20,17 @@ internal meetings. Privacy is a core feature, not an afterthought.
 - ❌ No transcript persistence. The live transcript exists only in memory and is
   gone when you press **Clear** or quit.
 
-## On-device vs. server recognition
+## On-device only — no cloud fallback
 
-| Mode | What happens to audio | When to use |
-|------|-----------------------|-------------|
-| **On-device only** (default) | Audio is transcribed entirely on your Mac and never leaves it. Requires the language's offline dictation model. | Always recommended; required for confidential meetings. |
-| On-device off | Apple's `Speech` framework **may** send audio to Apple's servers for recognition, subject to Apple's privacy policy. | Only if an on-device model isn't available for your language and you accept the trade-off. |
+Lexed transcribes **entirely on your Mac**. There is no server-recognition mode to
+turn on, and there couldn't be: the app is sandboxed **without** the network
+entitlement (`com.apple.security.network.client`), so the recognizer is
+technically unable to send audio anywhere even if it tried.
 
-Lexed defaults to on-device and will refuse to start in on-device mode if the
-model isn't installed (rather than silently falling back to the network). Install
-the model via **System Settings ▸ Keyboard ▸ Dictation ▸ add language**.
+Recognition sets `requiresOnDeviceRecognition = true`, and Lexed will **refuse to
+start** if the language's offline model isn't installed (rather than degrade to a
+network path). Install the model via **System Settings ▸ Keyboard ▸ Dictation ▸
+add language**.
 
 ## Permissions Lexed requests
 

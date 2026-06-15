@@ -40,8 +40,10 @@ the **UI is a thin projection** of observable state.
   engine. This is what makes "real time, all meeting long" work.
 - Exposes two strings: `finalizedText` (committed) and `volatileText` (the live
   hypothesis, updated several times per second). `fullText` joins them.
-- `requireOnDevice` sets `request.requiresOnDeviceRecognition = true` so audio
-  stays on the Mac.
+- Recognition is **on-device only**: `requiresOnDeviceRecognition` is always
+  `true` and the recognizer refuses to start without the offline model, so audio
+  never leaves the Mac. (The app is also sandboxed without the network
+  entitlement, making a cloud path impossible.)
 
 ### `Glossary` (`Sources/Lexed/Glossary.swift`)
 `ObservableObject` owning `[Keyword]`, persisted to
@@ -82,7 +84,7 @@ Thin and stateless beyond view-local `@State`:
   font-size slider.
 - `DefinitionsSidebar` — the big "current definition" card plus the session list.
 - `GlossaryEditor` — CRUD + JSON import/export.
-- `SettingsView` — language picker and on-device toggle.
+- `SettingsView` — language picker (recognition is on-device only; nothing to toggle).
 
 ## Why SwiftPM instead of an `.xcodeproj`?
 

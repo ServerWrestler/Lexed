@@ -12,10 +12,6 @@ struct SettingsView: View {
         Binding(get: { model.speech.localeIdentifier },
                 set: { model.speech.localeIdentifier = $0 })
     }
-    private var onDeviceBinding: Binding<Bool> {
-        Binding(get: { model.speech.requireOnDevice },
-                set: { model.speech.requireOnDevice = $0 })
-    }
 
     var body: some View {
         Form {
@@ -27,12 +23,12 @@ struct SettingsView: View {
                 }
                 .disabled(model.speech.isRunning)
 
-                Toggle("On-device only (recommended)", isOn: onDeviceBinding)
-                    .disabled(model.speech.isRunning)
+                Label("On-device only — audio never leaves your Mac.",
+                      systemImage: "lock.shield")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
 
-                Text(model.speech.requireOnDevice
-                     ? "Audio never leaves your Mac. Requires the language's on-device model (System Settings ▸ Keyboard ▸ Dictation ▸ add language)."
-                     : "May send audio to Apple for recognition. Not recommended for confidential meetings.")
+                Text("Requires the language's on-device dictation model. If it isn't installed, add it in System Settings ▸ Keyboard ▸ Dictation.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
